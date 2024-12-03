@@ -1,0 +1,39 @@
+
+header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-bottom: 3px solid red;
+}
+
+.title {
+    width: 100%;
+    height: 65px;
+    margin: 0 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.title-container-left{
+    display: flex;
+    justify-content: start;
+    align-items: center;
+}
+
+.title-container-right{
+    display: flex;
+    justify-content: end;
+    align-items: center;
+}
+
+.title-btn{
+    display: flex;
+    justify-content: start;
+    align-items: center;
+}
+
+.title-btn-icon{
+    width: 25px;
+    height: 25px;
+}
