@@ -1,4 +1,4 @@
-from fastapi import FastAPI,Form, WebSocket,WebSocketDisconnect
+from fastapi import FastAPI, Form, WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -6,7 +6,7 @@ import mysql.connector
 import json
 import models
 
-#MySQL 연결
+# MySQL 데이터베이스 연결 설정
 connection = mysql.connector.connect(
     host="localhost",
     user="root",
@@ -14,138 +14,148 @@ connection = mysql.connector.connect(
     database="wordgame"
 )
 
+# 데이터베이스 커서 생성 (결과를 딕셔너리 형태로 반환)
 cursor = connection.cursor(dictionary=True)
 
+# 전역적으로 사용할 Game 객체 초기화
 current_game = models.Game(
     title="default",
     description="default",
     words=[],
     matched_words=[],
-    is_completed= False
+    is_completed=False
 )
 
+# FastAPI 앱 생성
 app = FastAPI()
 
+# WebSocket 엔드포인트 (테스트용)
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     try:
+        # 클라이언트 연결 수락
         await websocket.accept()
         while True:
+            # 클라이언트로부터 메시지 수신
             data = await websocket.receive_text()
+            # 클라이언트로 메시지 전송 (Echo)
             await websocket.send_text(f"Echo: {data}")
     except Exception as e:
         print(f"WebSocket error: {e}")
 
-
+# 특정 게임에 대한 WebSocket 연결을 처리하는 엔드포인트
 @app.websocket("/ws/game/{game_id}")
 async def websocket_endpoint(websocket: WebSocket, game_id: int):
     try:
-        # 데이터베이스에서 입력받은 게임 id 데이터로 쿼리를 한다.
+        # 데이터베이스에서 해당 게임 ID의 데이터를 가져옴
         game_query = "SELECT * FROM gamedata WHERE id = %s"
         cursor.execute(game_query, (game_id,))
         result = cursor.fetchone()
 
+        # 데이터가 없으면 연결 종료
         if not result:
             return JSONResponse({"error": "Invalid game ID"}, status_code=404)
 
-        # 게임 생성
+        # Game 객체 생성
         word_list = json.loads(result["words"])
         current_game = models.Game(
             title=result["title"],
             description=result["description"],
             words=word_list,
             matched_words=[],
-            is_completed= False
+            is_completed=False
         )
 
-        print(f"WebSocket connection initiated for : {current_game.title}")
+        print(f"WebSocket connection initiated for: {current_game.title}")
+        # WebSocket 연결 수락
         await websocket.accept()
+
+        # 초기 게임 데이터 클라이언트로 전송
         await websocket.send_json(jsonable_encoder(current_game))
+
+        # 게임 진행 루프
         while not current_game.is_game_complete():
+            # 클라이언트로부터 단어 수신
             data = await websocket.receive_text()
-            print(f"Received Word : {data}")
+            print(f"Received Word: {data}")
+            # 단어 확인 및 업데이트
             current_game.check_word(data)
 
+            # 업데이트된 게임 데이터를 클라이언트로 전송
             await websocket.send_json(jsonable_encoder(current_game))
 
+        # 게임 완료 시 최종 데이터 전송
         await websocket.send_json(jsonable_encoder(current_game))
     except Exception as e:
         print(f"WebSocket error: {e}")
 
     return '200'
 
-
-
-# 게임을 시작을 요청하는 URL
+# 특정 게임 데이터를 반환하는 엔드포인트
 @app.get('/games/id={game_id}')
 def start_games(game_id: int):
     print(f"Received request for game_id: {game_id}")
-    # 데이터베이스에서 입력받은 게임 id 데이터로 쿼리를 한다.
+    # 데이터베이스에서 해당 게임 ID의 데이터를 가져옴
     game_query = "SELECT * FROM gamedata WHERE id = %s"
     cursor.execute(game_query, (game_id,))
     result = cursor.fetchone()
 
+    # 데이터가 없으면 에러 응답
     if not result:
         return JSONResponse({"error": "Invalid game ID"}, status_code=404)
 
-    # 게임 생성
+    # Game 객체 생성
     word_list = json.loads(result["words"])
     current_game = models.Game(
         title=result["title"],
         description=result["description"],
         words=word_list,
         matched_words=[],
-        is_completed= False
+        is_completed=False
     )
 
+    # JSON 형식으로 게임 데이터 반환
     return JSONResponse(jsonable_encoder(current_game))
 
-
-
+# 새로운 게임 데이터를 생성하는 엔드포인트
 @app.post('/create-game')
 def create_game(game_data: models.GameData):
-    # 입력받은 words 필드를 JSON 문자열로 변환
+    # words 필드를 JSON 문자열로 변환
     words_json = json.dumps(game_data.words)
 
-    # INSERT 쿼리 정의
+    # INSERT 쿼리 정의 및 실행
     insert_query = """
     INSERT INTO gamedata (title, description, words, public)
     VALUES (%s, %s, %s, %s)
     """
-    # 쿼리에 전달할 데이터 튜플 생성
     data = (game_data.title, game_data.description, words_json, game_data.public)
-
-    # 쿼리 실행
     cursor.execute(insert_query, data)
 
-    # 데이터베이스에 변경 사항 커밋
+    # 데이터베이스 커밋
     connection.commit()
 
     # 성공 응답 반환
     return '200'
 
-
+# 모든 게임 데이터를 반환하는 엔드포인트
 @app.get('/games')
 def get_games():
-    # 데이터베이스에서 모든 게임 데이터를 조회하는 쿼리
+    # 데이터베이스에서 모든 게임 데이터 조회
     query = """
     SELECT * FROM gamedata;
     """
-    # 쿼리를 실행하여 데이터 가져오기
     cursor.execute(query)
     rows = cursor.fetchall()
 
-    # 결과 데이터를 처리할 리스트 초기화
+    # 조회된 데이터를 처리
     result = []
     for row in rows:
-        # words 필드의 JSON 문자열을 파이썬 객체로 변환
+        # words 필드 JSON 변환
         row['words'] = json.loads(row['words'])
-        # 변환된 데이터를 결과 리스트에 추가
         result.append(row)
 
-    # 데이터를 JSON 형식으로 반환
-    # jsonable_encoder를 사용하여 데이터 직렬화 후 JSONResponse로 감쌈
+    # JSON 형식으로 데이터 반환
     return JSONResponse(jsonable_encoder(dict(ret) for ret in result))
 
-
-app.mount("/",StaticFiles(directory="frontend",html=True),name="frontend")
+# 정적 파일 (frontend) 서빙
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
