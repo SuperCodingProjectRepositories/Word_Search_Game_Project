@@ -130,7 +130,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 # 특정 게임에 대한 WebSocket 연결을 처리하는 엔드포인트
 @app.websocket("/ws/game/{game_id}")
-async def websocket_endpoint(websocket: WebSocket, game_id: int, user: dict = Depends(get_current_user)):
+async def websocket_endpoint(websocket: WebSocket, game_id: int):
     try:
         # 데이터베이스에서 해당 게임 ID의 데이터를 가져옴
         game_query = "SELECT * FROM gamedata WHERE id = %s"

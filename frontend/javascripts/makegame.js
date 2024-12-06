@@ -54,6 +54,11 @@ const makeGameData = async (event) => {
     console.log(data);
 }
 
+const titleText = document.querySelector(".title-container-left");
+titleText.addEventListener("click", () =>{
+    window.location.pathname = '/';
+});
+
 form.addEventListener('submit', makeGameData);
 
 

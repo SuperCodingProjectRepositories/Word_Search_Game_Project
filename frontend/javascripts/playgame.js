@@ -1,4 +1,5 @@
-let ws = new WebSocket(`ws://127.0.0.1:8000/ws/game/${1}`);
+const gameID = window.sessionStorage.getItem('currentGameID');
+let ws = new WebSocket(`ws://127.0.0.1:8000/ws/game/${gameID}`);
 
 ws.onopen = () =>{
     console.log("Game WebSocket connected");
@@ -14,7 +15,7 @@ ws.onmessage = (event) => {
 ws.onerror = (error) => console.error("WebSocket error:", error);
 
 async function initData(){
-    const res = await fetch(`/games/id=${1}`);
+    const res = await fetch(`/games/id=${gameID}`);
     if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
     }
