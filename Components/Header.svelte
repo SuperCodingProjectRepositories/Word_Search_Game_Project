@@ -1,10 +1,19 @@
+<script>
+    const onMoveToMakeGame = () => {
+        window.location.hash = '/makeGame';
+    };
+    const onMoveToMain = () => {
+        window.location.hash = '/';
+    }
+</script>
+
 <header>
     <div class="title">
-        <div class="title-container-left">
+        <div class="title-container-left" on:click={onMoveToMain}>
             <div class="title-text">The Word Search</div>
         </div>
         <div class="title-container-right">
-            <div class="title-btn">
+            <div class="title-btn" on:click={onMoveToMakeGame}>
                 <div class="title-btn-icon">
                     <img src="asset/svg/pancle.svg">
                 </div>
