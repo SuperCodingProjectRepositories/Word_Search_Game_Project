@@ -157,5 +157,9 @@ def get_games():
     # JSON 형식으로 데이터 반환
     return JSONResponse(jsonable_encoder(dict(ret) for ret in result))
 
+@app.get('/')
+def get_root():
+    return "Hello World!"
+
 # 정적 파일 (frontend) 서빙
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
