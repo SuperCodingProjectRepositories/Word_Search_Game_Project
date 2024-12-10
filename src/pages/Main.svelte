@@ -1,6 +1,6 @@
 <script>
     // Your Svelte script here
-    import Header from "../../Components/Header.svelte";
+    import Header from "../components/Header.svelte";
 
     const onClickGameListItem = () => {window.location.hash = '/playGame'}
 

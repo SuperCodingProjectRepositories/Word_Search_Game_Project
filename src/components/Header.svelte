@@ -9,25 +9,25 @@
 
 <header>
     <div class="title">
-        <div class="title-container-left" on:click={onMoveToMain}>
+        <button class="title-container-left" on:click={onMoveToMain}>
             <div class="title-text">The Word Search</div>
-        </div>
+        </button>
         <div class="title-container-right">
-            <div class="title-btn" on:click={onMoveToMakeGame}>
+            <button class="title-btn" on:click={onMoveToMakeGame}>
                 <div class="title-btn-icon">
-                    <img src="asset/svg/pancle.svg">
+                    <img alt="panicle" src="asset/svg/pancle.svg">
+                </div>
+                <div class="title-btn-text">Word Search Make</div>
+            </button>
+            <div class="title-btn">
+                <div class="title-btn-icon">
+                    <img src="asset/svg/pancle.svg" alt="panicle">
                 </div>
                 <div class="title-btn-text">Word Search Make</div>
             </div>
             <div class="title-btn">
                 <div class="title-btn-icon">
-                    <img src="asset/svg/pancle.svg">
-                </div>
-                <div class="title-btn-text">Word Search Make</div>
-            </div>
-            <div class="title-btn">
-                <div class="title-btn-icon">
-                    <img src="asset/svg/pancle.svg">
+                    <img src="asset/svg/pancle.svg" alt="panicle">
                 </div>
                 <div class="title-btn-text">Word Search Make</div>
             </div>
@@ -36,6 +36,10 @@
 </header>
 
 <style>
+    button{
+        border: none;
+        background: none;
+    }
 
     header {
         display: flex;
