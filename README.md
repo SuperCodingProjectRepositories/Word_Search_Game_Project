@@ -1,47 +1,101 @@
-# Svelte + Vite
+# Word_Search_Game_Project
 
-This template should help get you started developing with Svelte in Vite.
+## 프로젝트 개발 정보 요약
 
-## Recommended IDE Setup
+---
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
+### 프로젝트 개요
+- 프로젝트 이름: Word Search Game API
+- 목적: 사용자 인증 및 WebSocket을 활용한 단어 찾기 게임 구현.
+- 주요 기술:
+  - Python (FastAPI)
+  - MySQL
+  - WebSocket
+  - Frontend: Static files
 
-## Need an official Svelte framework?
+---
 
-Check out [SvelteKit](https://github.com/sveltejs/kit#readme), which is also powered by Vite. Deploy anywhere with its serverless-first approach and adapt to various platforms, with out of the box support for TypeScript, SCSS, and Less, and easily-added support for mdsvex, GraphQL, PostCSS, Tailwind CSS, and more.
+### 주요 기능
+#### 1, 사용자 관리:
+- 회원가입 (```/signup```): 사용자가 이메일, 비밀번호, 사용자 이름을 등록.
+- 로그인 (```/login```): 사용자가 이메일과 비밀번호로 인증.
+- JWT 인증 기반으로 보호된 API 제공.
 
-## Technical considerations
+#### 2, 게임 데이터 관리:
+- 새로운 게임 생성 (```/create-game```): 관리자 권한이 있는 사용자만 게임 데이터 생성 가능.
+- 게임 데이터 조회 (```/games```): 등록된 모든 게임 데이터를 반환.
+- 특정 게임 데이터 조회 (```/games/id={game_id}```): 특정 게임 데이터를 반환.
 
-**Why use this over SvelteKit?**
+#### 3, WebSocket 기반 게임 진행:
+- ```/ws```: 단순 테스트용 WebSocket 엔드포인트.
+- ```/ws/game/{game_id}```: 특정 게임의 WebSocket 연결 처리.
+  - 실시간으로 단어 맞추기 진행.
+  - 클라이언트와 서버 간 데이터 교환.
+  - 게임 상태 업데이트 및 게임 완료 시 알림.
 
-- It brings its own routing solution which might not be preferable for some users.
-- It is first and foremost a framework that just happens to use Vite under the hood, not a Vite app.
+#### 4, 보안:
+- JWT 기반 인증 시스템으로 인증된 사용자만 API 및 WebSocket 접근 가능.
+- Depends(get_current_user)를 사용하여 사용자 인증 상태 확인.
 
-This template contains as little as possible to get started with Vite + Svelte, while taking into account the developer experience with regards to HMR and intellisense. It demonstrates capabilities on par with the other `create-vite` templates and is a good starting point for beginners dipping their toes into a Vite + Svelte project.
+---
+### 데이터 모델
 
-Should you later need the extended capabilities and extensibility provided by SvelteKit, the template has been structured similarly to SvelteKit so that it is easy to migrate.
+#### 사용자 테이블 (```userdata```)
+| **필드명**   | **데이터 타입**   | **설명**   |
+|--------|--------|--------|
+| ```id``` | 	INT | 기본 키 |
+| ```username``` | 	TEXT | 사용자 이름 |
+| ```email``` | TEXT | 사용자 이메일 |
+| ```password``` | TEXT | 암호화된 비밀번호 |
 
-**Why `global.d.ts` instead of `compilerOptions.types` inside `jsconfig.json` or `tsconfig.json`?**
+#### 게임 테이블 (```gamedata```)
 
-Setting `compilerOptions.types` shuts out all other types not explicitly listed in the configuration. Using triple-slash references keeps the default TypeScript setting of accepting type information from the entire workspace, while also adding `svelte` and `vite/client` type information.
+| **필드명**   | **데이터 타입**   | **설명**   |
+|--------|--------|--------|
+| ```id``` | 	INT | 기본 키 |
+| ```title``` | 	TEXT | 게임 제목 |
+| ```description``` | 	TEXT | 게임 설명 |
+| ```words``` | JSON | 단어 리스트 |
+| ```public``` | BOOLEAN | 공개 여부 |
 
-**Why include `.vscode/extensions.json`?**
+---
 
-Other templates indirectly recommend extensions via the README, but this file allows VS Code to prompt the user to install the recommended extension upon opening the project.
+## API 요약
 
-**Why enable `checkJs` in the JS template?**
+### 1. 사용자 관련 엔드포인트
+| 메서드 | 경로     | 설명                       |
+|--------|----------|----------------------------|
+| POST   | `/signup`| 사용자 회원가입            |
+| POST   | `/login` | 사용자 로그인 (JWT 발급)   |
 
-It is likely that most cases of changing variable types in runtime are likely to be accidental, rather than deliberate. This provides advanced typechecking out of the box. Should you like to take advantage of the dynamically-typed nature of JavaScript, it is trivial to change the configuration.
+### 2. 게임 데이터 엔드포인트
+| 메서드 | 경로               | 설명                             |
+|--------|--------------------|----------------------------------|
+| POST   | `/create-game`     | 새로운 게임 데이터 생성          |
+| GET    | `/games`           | 등록된 모든 게임 데이터 조회     |
+| GET    | `/games/id={id}`   | 특정 게임 데이터 조회            |
 
-**Why is HMR not preserving my local component state?**
+### 3. WebSocket 엔드포인트
+| 경로                  | 설명                               |
+|-----------------------|------------------------------------|
+| `/ws`                 | 테스트용 WebSocket 엔드포인트      |
+| `/ws/game/{game_id}`  | 특정 게임 진행 WebSocket 연결 처리 |
 
-HMR state preservation comes with a number of gotchas! It has been disabled by default in both `svelte-hmr` and `@sveltejs/vite-plugin-svelte` due to its often surprising behavior. You can read the details [here](https://github.com/sveltejs/svelte-hmr/tree/master/packages/svelte-hmr#preservation-of-local-state).
+---
 
-If you have state that's important to retain within a component, consider creating an external store which would not be replaced by HMR.
+## 기술 스택
 
-```js
-// store.js
-// An extremely simple external store
-import { writable } from 'svelte/store'
-export default writable(0)
-```
+### 백엔드
+- **FastAPI**: API 및 WebSocket 구현.
+- **MySQL**: 게임 및 사용자 데이터 관리.
+- **fastapi-login**: 사용자 인증 및 JWT 토큰 발급.
+
+### 프론트엔드
+- **Static Files**: HTML, CSS, JavaScript 파일 서빙.
+- **WebSocket 기반**: 서버와 실시간 통신.
+
+### 기타
+- **JWT 인증**: API 및 WebSocket 보안.
+- **JSON 데이터 관리**: 게임 데이터(단어 리스트) 직렬화 및 역직렬화.
+
+---

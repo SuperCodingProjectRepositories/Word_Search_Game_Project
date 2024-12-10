@@ -1,7 +1,11 @@
-from fastapi import FastAPI, Form, WebSocket, WebSocketDisconnect
+from typing import Annotated
+
+from fastapi import FastAPI, Form, WebSocket, WebSocketDisconnect, Depends, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi_login import LoginManager
+from fastapi_login.exceptions import InvalidCredentialsException
 import mysql.connector
 import json
 import models
@@ -17,6 +21,9 @@ connection = mysql.connector.connect(
 # 데이터베이스 커서 생성 (결과를 딕셔너리 형태로 반환)
 cursor = connection.cursor(dictionary=True)
 
+SECRET = "Super_Coding_Word_Search"
+manager = LoginManager(SECRET,'/login')
+
 # 전역적으로 사용할 Game 객체 초기화
 current_game = models.Game(
     title="default",
@@ -28,6 +35,84 @@ current_game = models.Game(
 
 # FastAPI 앱 생성
 app = FastAPI()
+
+# @manager.user_loader 데코레이터로 로그인 매니저에 사용자 로드 함수 정의
+@manager.user_loader()
+def query_user(data):
+    """
+    사용자 정보를 데이터베이스에서 조회하는 함수
+    - 이메일을 기준으로 사용자를 조회
+    - 로그인 토큰 데이터에서 이메일(sub)를 가져와 조회
+    """
+    # data가 단순 문자열인 경우
+    WHERE_STATEMENTS = f'email="{data}"'
+
+    # data가 딕셔너리(로그인 토큰인 경우)인 경우
+    if type(data) == dict:
+        WHERE_STATEMENTS = f'''email="{data['sub']}"'''
+
+    # SQL 쿼리를 실행하여 사용자 정보를 가져옴
+    query_user = f"""
+        SELECT * from userdata WHERE {WHERE_STATEMENTS};
+    """
+    cursor.execute(query_user)
+    user = cursor.fetchone()
+    return user  # 조회된 사용자 정보를 반환
+
+# 회원가입 엔드포인트
+@app.post('/signup')
+def signup(email: Annotated[str, Form()],
+           password: Annotated[str, Form()],
+           username: Annotated[str, Form()]):
+    """
+    사용자 회원가입 처리
+    - 클라이언트에서 이메일, 비밀번호, 사용자명을 전달받음
+    - 사용자 데이터를 데이터베이스에 삽입
+    """
+    # INSERT 쿼리 정의 및 실행
+    insert_query = """
+    INSERT INTO userdata (username, email, password)
+    VALUES (%s, %s, %s)
+    """
+    data = (username, email, password)
+    cursor.execute(insert_query, data)  # 데이터베이스에 사용자 정보 삽입
+
+    # 데이터베이스 변경 사항 저장
+    connection.commit()
+    print(email, password)  # 디버깅용 출력
+    return {'message': 'Signup successful'}  # 회원가입 성공 메시지 반환
+
+# 로그인 엔드포인트
+@app.post('/login')
+def login(email: Annotated[str, Form()],
+          password: Annotated[str, Form()]):
+    """
+    사용자 로그인 처리
+    - 클라이언트에서 이메일과 비밀번호를 전달받음
+    - 데이터베이스에서 사용자를 조회하고 비밀번호를 검증
+    - 검증 성공 시 액세스 토큰을 생성하여 반환
+    """
+    user = query_user(email)  # 이메일을 통해 사용자 조회
+
+    # 사용자 정보가 없거나 비밀번호가 일치하지 않으면 인증 오류 발생
+    if not user:
+        raise InvalidCredentialsException  # 사용자 없음
+    elif password != user['password']:
+        raise InvalidCredentialsException  # 비밀번호 불일치
+
+    # 인증 성공 시 액세스 토큰 생성
+    access_token = manager.create_access_token(data={
+        'sub': user['email'],  # 사용자 이메일을 토큰의 sub 필드에 저장
+        'username': user['username']  # 사용자 이름도 토큰에 저장
+    })
+    return {'access_token': access_token}  # 생성된 액세스 토큰 반환
+
+
+# 인증된 사용자 확인을 위한 종속성
+def get_current_user(user: dict = Depends(manager)):
+    if not user:
+        raise HTTPException(status_code=401,detail="Unauthorized")
+    return user
 
 # WebSocket 엔드포인트 (테스트용)
 @app.websocket("/ws")
@@ -93,7 +178,7 @@ async def websocket_endpoint(websocket: WebSocket, game_id: int):
 
 # 특정 게임 데이터를 반환하는 엔드포인트
 @app.get('/games/id={game_id}')
-def start_games(game_id: int):
+def start_games(game_id: int, user: dict = Depends(get_current_user)):
     print(f"Received request for game_id: {game_id}")
     # 데이터베이스에서 해당 게임 ID의 데이터를 가져옴
     game_query = "SELECT * FROM gamedata WHERE id = %s"
@@ -119,7 +204,7 @@ def start_games(game_id: int):
 
 # 새로운 게임 데이터를 생성하는 엔드포인트
 @app.post('/create-game')
-def create_game(game_data: models.GameData):
+def create_game(game_data: models.GameData, user: dict = Depends(get_current_user)):
     # words 필드를 JSON 문자열로 변환
     words_json = json.dumps(game_data.words)
 
@@ -139,7 +224,7 @@ def create_game(game_data: models.GameData):
 
 # 모든 게임 데이터를 반환하는 엔드포인트
 @app.get('/games')
-def get_games():
+def get_games(user: dict = Depends(get_current_user)):
     # 데이터베이스에서 모든 게임 데이터 조회
     query = """
     SELECT * FROM gamedata;
