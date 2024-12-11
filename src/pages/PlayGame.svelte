@@ -1,4 +1,11 @@
-
+<script>
+    import {onMount} from "svelte";
+    onMount(() => {
+        const currentGameStr = sessionStorage.getItem("currentGame");
+        const currentGame = JSON.parse(currentGameStr);
+        console.log(currentGame);
+    })
+</script>
 <div>
     <h5 class=game-title>Game Title</h5>
 </div>

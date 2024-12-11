@@ -1,8 +1,31 @@
 <script>
     // Your Svelte script here
     import Header from "../components/Header.svelte";
+    import { getDatabase, ref, onValue } from "firebase/database";
+    import {onMount} from "svelte";
+    const db = getDatabase();
+    const gameDataRef = ref(db, 'gameDatas');
 
-    const onClickGameListItem = () => {window.location.hash = '/playGame'}
+    $: gameDatas = [];
+
+    const onClickGameListItem = (event) =>
+    {
+        const currentGame = gameDatas.find((x) => x.id === event.target.id);
+        sessionStorage.setItem("currentGame",JSON.stringify(currentGame));
+        window.location.hash = '/playGame'
+    }
+
+
+    onMount(() => {
+        onValue(gameDataRef, (res) => {
+            const data = res.val();
+            gameDatas = Object.entries(data).map(([key,value]) => ({
+                id: key,
+                ...value
+            })).reverse();
+            console.log(gameDatas);
+        });
+    })
 
 </script>
 
@@ -11,10 +34,12 @@
 
 <main>
     <ul class="game-list">
-        <li class="game-list-item"
-            on:click|preventDefault={onClickGameListItem}>
-            게임 타이틀입니다.
-        </li>
+        {#each gameDatas as data}
+            <li class="game-list-item" id={data.id}
+                on:click|preventDefault={onClickGameListItem}>
+                {data.title}
+            </li>
+        {/each}
     </ul>
 </main>
 
