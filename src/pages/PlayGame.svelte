@@ -1,13 +1,44 @@
 <script>
     import {onMount} from "svelte";
+    import { getDatabase, ref, child, get } from "firebase/database";
+
+    const gameDB = ref(getDatabase());
+
+    let title;
+    let description;
+    let words = [];
+    let collectedWords = [];
+
     onMount(() => {
         const currentGameStr = sessionStorage.getItem("currentGame");
         const currentGame = JSON.parse(currentGameStr);
-        console.log(currentGame);
+        const gameID = currentGame.id;
+
+        get(child(gameDB, `gameDatas/${gameID}`)).then((snapshot) => {
+            if (snapshot.exists()) {
+                title = snapshot.val()['title'];
+                description = snapshot.val()['description'];
+                words = snapshot.val()['words'];
+                collectedWords = [];
+                console.log(words);
+            } else {
+                console.log("No data available");
+            }
+        }).catch((error) => {
+            console.error(error);
+        });
     })
+
+    function onSendWord(word)
+    {
+        if(words.includes(word) && !collectedWords.includes(word)) {
+            collectedWords.push(word);
+            console.log(collectedWords);
+        }
+    }
 </script>
 <div>
-    <h5 class=game-title>Game Title</h5>
+    <h5 class=game-title>{title}</h5>
 </div>
 <div class="word-puzzle">
     <div class="row">
@@ -208,8 +239,9 @@
     </div>
 </div>
 
-<style>
 
+
+<style>
     .word-puzzle{
         width: 500px;
         display: flex;

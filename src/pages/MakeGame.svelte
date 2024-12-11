@@ -21,6 +21,12 @@
             }
         }
 
+        if(words.length < 10)
+        {
+            alert("단어를 10개 이상 입력해주세요");
+            return;
+        }
+
         try{
             const newPostRef = push(postListRef);
             const res = set(newPostRef, {
