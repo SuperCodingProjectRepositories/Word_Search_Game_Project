@@ -3,28 +3,36 @@
     import Header from "../components/Header.svelte";
     import { getDatabase, ref, onValue } from "firebase/database";
     import {onMount} from "svelte";
+
+
     const db = getDatabase();
-    const gameDataRef = ref(db, 'gameDatas');
+    const gameDataRef = ref(db, 'gameDatas/');
 
     $: gameDatas = [];
 
     const onClickGameListItem = (event) =>
     {
-        const currentGame = gameDatas.find((x) => x.id === event.target.id);
-        sessionStorage.setItem("currentGame",JSON.stringify(currentGame));
-        window.location.hash = '/playGame'
+        const gameId = event.target.id;
+        window.location.hash = `/playGame?gameId=${gameId}`;
+        console.log(window.location.hash);
     }
 
-
     onMount(() => {
+        console.log("onMount");
         onValue(gameDataRef, (res) => {
             const data = res.val();
-            gameDatas = Object.entries(data).map(([key,value]) => ({
+
+            if (!data) {
+                console.error("No game data found in Firebase.");
+                return;
+            }
+
+            gameDatas = Object.entries(data).map(([key, value]) => ({
                 id: key,
                 ...value
             })).reverse();
-            console.log(gameDatas);
         });
+
     })
 
 </script>
@@ -33,16 +41,23 @@
 <Header/>
 
 <main>
-    <ul class="game-list">
-        {#each gameDatas as data}
-            <li class="game-list-item" id={data.id}
-                on:click|preventDefault={onClickGameListItem}>
-                {data.title}
-            </li>
+    <div class="game-list">
+        {#each gameDatas as data, index}
+            <button class="game-list-item" id={data.id} on:click|preventDefault={onClickGameListItem}>
+                 {index + 1} : {data.title}
+            </button>
         {/each}
-    </ul>
+    </div>
 </main>
 
 <style>
-    /* Your Svelte styles here */
+    .game-list-item {
+        width: 100%;
+        height: 50px;
+        padding: 10px;
+        margin: 5px 10px;
+        text-align: start;
+        background: none;
+        border: none;
+    }
 </style>

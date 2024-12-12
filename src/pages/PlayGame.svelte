@@ -2,9 +2,7 @@
     import { onMount } from "svelte";
     import { getDatabase, ref, child, get, set,push ,onValue } from "firebase/database";
     import { getAuth } from "firebase/auth";
-
-    const auth = getAuth();
-    const user = auth.currentUser;
+    import Header from "../components/Header.svelte";
 
     const gameDB = ref(getDatabase());
 
@@ -45,48 +43,72 @@
         gameStarted = false;
     }
 
+    const loadGame = async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        gameID = urlParams.get("gameId");
+
+        if (!gameID) {
+            alert("유효하지 않은 게임 링크입니다.");
+            window.location.href = "/";
+            return;
+        }
+
+        // 사용자 인증 상태 확인
+        if (localStorage.getItem('userName') === "") {
+            console.error("User is not authenticated.");
+            alert("로그인이 필요합니다.");
+            window.location.hash = '/login';
+            return;
+        }
+
+        try {
+            const gameRef = ref(getDatabase(), `gameDatas/${gameID}`);
+            const snapshot = await get(gameRef);
+
+            if (snapshot.exists()) {
+                const gameData = snapshot.val();
+                title = gameData.title;
+                description = gameData.description;
+                words = gameData.words || [];
+
+                grid = generateGrid(gridSize, words);
+                loadLeaderBoard();
+            } else {
+                alert("게임 데이터를 찾을 수 없습니다.");
+                window.location.href = "/";
+            }
+        } catch (error) {
+            console.error("Error loading game:", error);
+        }
+    };
+
+    function loadLeaderBoard() {
+        try {
+            const gameDataRef = ref(getDatabase(), 'leaderboards/' + gameID);
+
+            onValue(gameDataRef, (res) => {
+                if (res.exists()) {
+                    // 데이터가 배열 형태일 경우 객체로 변환
+                    leaderboard = Object.values(res.val());
+
+                    console.log(leaderboard);
+                } else {
+                    leaderboard = [];
+                    console.log("No leaderboard data found.");
+                }
+            });
+        } catch (error) {
+            leaderboard = [];
+            console.error("Error loading leaderboard:", error);
+        }
+    }
+
     function startGame(){
         startTime = new Date();
         gameStarted = true;
         updateTimer();
         setInterval(updateTimer,1000);
     }
-
-    function loadLeaderBoard(){
-        try{
-            const gameDataRef = ref(getDatabase(), 'leaderboards/' + {gameID});
-            onValue(gameDataRef,(res) => {
-                if(res.exists()){
-                    leaderboard = Object.values( res.val());
-                    leaderboard.sort((a,b) => a.time.localeCompare(b.time)); // 타임 기준 정렬
-                    console.log(leaderboard);
-                }
-                else {
-                    leaderboard = [];
-                }
-            });
-        }catch (error){
-            leaderboard = [];
-            console.log(error);
-        }
-
-    }
-
-    function uploadLeaderBoard(){
-        try{
-            const db = getDatabase();
-            const leaderboardRef = ref(db, `leaderboards/${gameID}`);
-            const newPostRef = push(leaderboardRef);
-
-            set(newPostRef, {
-                userName: user.displayName || "Unknown",
-                time: timer,
-            });
-        }catch (error){
-            console.log(error);
-        }
-    }
-
 
     function updateTimer()
     {
@@ -100,20 +122,20 @@
     }
 
     onMount(() => {
-        const currentGameStr = sessionStorage.getItem("currentGame");
-        if (!currentGameStr) {
-            console.error("No current game data in sessionStorage");
-            return;
-        }
+        // URL에서 gameId 추출
+        const hash = window.location.hash;
+        const urlParams = new URLSearchParams(hash.split("?")[1]);
+        gameID = urlParams.get("gameId");
 
-        const currentGame = JSON.parse(currentGameStr);
-        gameID = currentGame.id;
+        console.log(window.location.hash);
+        console.log(urlParams);
+        console.log(gameID);
 
         get(child(gameDB, `gameDatas/${gameID}`))
             .then((snapshot) => {
                 if (snapshot.exists()) {
                     initGame();
-
+                    //currentGame = JSON.parse(snapshot.val());
                     title = snapshot.val()["title"];
                     description = snapshot.val()["description"];
                     words = snapshot.val()["words"];
@@ -130,6 +152,7 @@
                 console.error(error);
                 grid = generateGrid(gridSize, []); // 기본값 설정
             });
+
     });
 
     function generateGrid(size, words) {
@@ -263,9 +286,42 @@
             });
             console.log("Invalid word: " + selectedWord);
         }
+        finishGame();
+
         selectedCells = [];
         selectedWord = "";
 
+    }
+
+    function finishGame(){
+        if(arraysAreEqual(words,collectedWords))
+        {
+            console.log("Finishing game...");
+            try{
+                const db = getDatabase();
+                const userName = localStorage.getItem('userName');
+                const leaderboardRef = ref(db, `leaderboards/${gameID}/${userName}`);
+
+                set(leaderboardRef, {
+                    userName: userName || "Unknown",
+                    time: timer,
+                });
+                alert("게임을 클리어 하셨습니다.");
+
+                setTimeout(() => {
+                    initGame();
+                    window.location.hash = "/"
+                }, 1000);
+            }catch (error){
+                console.log(error);
+            }
+        }
+    }
+
+    // 배열 비교 함수
+    function arraysAreEqual(arr1, arr2) {
+        if (arr1.length !== arr2.length) return false; // 길이가 다르면 false
+        return arr1.every((value, index) => value === arr2[index]); // 모든 요소가 일치하는지 확인
     }
 
     function resetSelection() {
@@ -275,15 +331,28 @@
                 cellElement.style.backgroundColor = "";
             }
         });
-
     }
+
+    function testCollectWord(){
+        if(!gameStarted) return;
+        for (let i = 0; i < words.length; i++){
+            if(!collectedWords.includes(words[i]))
+            {
+                collectedWords.push(words[i]);
+            }
+        }
+        finalizeSelection();
+    }
+
 </script>
+
+<Header />
 
 <main>
     <div>
-        <h5 class="game-title">{title}</h5>
-        <p>{description}</p>
-        <p>{timer}</p>
+        <h1 class="game-title">{title}</h1>
+        <h3>{description}</h3>
+        <h4>{timer}</h4>
     </div>
 
     <div class="game-board">
@@ -291,67 +360,100 @@
             <h3>찾아야 할 단어들</h3>
             <ul>
                 {#each words as word}
-                    <li class= {collectedWords.includes(word) ? 'collectWord' : ''}>
+                    <li class={collectedWords.includes(word) ? 'collectWord' : ''}>
                         {word}
                     </li>
                 {/each}
             </ul>
         </div>
 
-        <div class="word-puzzle">
-            <button on:click={startGame} disabled={gameStarted} class="gameStart">
-                {gameStarted ? "게임 진행 중" : "게임 시작"}
-            </button>
-            {#each grid as row, rowIndex}
-                <div class="row">
-                    {#each row as letter, colIndex}
-                    <span
-                            class="cell"
-                            data-row={rowIndex}
-                            data-col={colIndex}
-                            on:mousedown={() => onMouseDown(rowIndex, colIndex)}
-                            on:mouseover={() => onMouseEnter(rowIndex, colIndex)}
-                            on:mouseup={onMouseUp}>
-                        {letter}
-                    </span>
-                    {/each}
+        <div class="game-panel">
+            {#if !gameStarted}
+                <div class="start-panel">
+                    <button on:click={startGame} class="gameStart">게임 시작</button>
                 </div>
-            {/each}
+            {/if}
+
+            <div class="word-puzzle">
+                {#each grid as row, rowIndex}
+                    <div class="row">
+                        {#each row as letter, colIndex}
+                            <div
+                                    class="cell"
+                                    data-row={rowIndex}
+                                    data-col={colIndex}
+                                    on:mousedown={() => onMouseDown(rowIndex, colIndex)}
+                                    on:mouseover={() => onMouseEnter(rowIndex, colIndex)}
+                                    on:focus={() => onMouseEnter(rowIndex, colIndex)}
+                                    on:mouseup={onMouseUp}
+                                    role="gridcell"
+                                    tabindex="0">
+                                {letter}
+                            </div>
+                        {/each}
+                    </div>
+                {/each}
+            </div>
         </div>
+
         <div class="leaderboard">
             <h3>현황판</h3>
-            <ul>
-                {#each leaderboard as {userName, time},index}
-                    <li class=leaderboard-item style={index < 3 ? 'font-weight: bold; color: gold;' : ''} >
+            <div>
+                {#each leaderboard as {userName, time}, index}
+                    <div class="leaderboard-item" style={index < 3 ? 'font-weight: bold;' : ''}>
                         {index + 1}. {userName} - {time}
-                    </li>
+                    </div>
                 {/each}
-            </ul>
+            </div>
         </div>
     </div>
 </main>
-
 
 <style>
     .game-board {
         display: flex;
         justify-content: start;
         align-items: start;
+        position: relative;
     }
 
-    .wordList {
-        width: 200px;
-
-    }
-
-    .gameStart {
-        width: 100%;
+    .game-panel {
+        position: relative;
+        width: 480px;
         height: 100%;
     }
 
+    .start-panel {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.7);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10;
+    }
+
+    .gameStart {
+        padding: 10px 20px;
+        font-size: 18px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .gameStart:hover {
+        background-color: #45a049;
+    }
+
     .word-puzzle {
-        width: 480px;
-        height: 480px;
+        width: 100%;
+        height: 100%;
         display: inline-block;
         user-select: none;
     }
@@ -380,11 +482,17 @@
         color: green;
     }
 
+    .wordList {
+        width: 200px;
+        padding: 10px;
+    }
+
     .leaderboard {
         width: 200px;
+        padding: 10px;
     }
 
     .leaderboard-item {
-        color: gold;
+        font-weight: 700;
     }
 </style>

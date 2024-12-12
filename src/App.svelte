@@ -17,18 +17,17 @@
 
     const checkLogin = async () => {
         const token = localStorage.getItem("token");
-        if(!token) return (isLoading = false);
-        if(loginType === "Google"){
-            const credential = GoogleAuthProvider.credential(token);
-            const result = await signInWithCredential(auth, credential);
-            const user = result.user;
-            user$.set(user);
-            isLoading = false;
-        }
-        else{
+        if(!token)
+        {
             window.location.hash = '/login';
             isLoading = false;
+            return;
         }
+        const credential = GoogleAuthProvider.credential(null, token);
+        const result = await signInWithCredential(auth, credential);
+        const user = result.user;
+        user$.set(user);
+        isLoading = false;
     }
 
     // 경로와 컴포넌트를 매핑

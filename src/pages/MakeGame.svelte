@@ -35,7 +35,8 @@
                 words: words,
                 public_flag: flag,
             });
-            console.log(res);
+            const gameLink = `${window.location.origin}/#/playGame?gameId=${newPostRef.key}`;
+            alert(`게임이 생성되었습니다!\n공유 링크: ${gameLink}`);
         }catch (error) {
             console.error(error);
         }
@@ -56,7 +57,7 @@
     </label>
 </div>
 <div class="game-wordlist">
-    <label>Word List</label>
+    <h3>Word List</h3>
     <div>Between 10 and 30 words. Puzzles are randomly generated using a selection of your words at play time
     </div>
     <div class="game-wordlist-container">
@@ -93,7 +94,7 @@
     </div>
 </div>
 <div class="game-subject">
-    <label>Subject</label>
+    <h2>Subject</h2>
     <div>
         <input type="radio" id="contact-private" name="contact" value="private"/>
         <label for="contact-private"> Myself,family,friends etc.</label>

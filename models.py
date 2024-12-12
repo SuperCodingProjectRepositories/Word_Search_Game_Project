@@ -11,7 +11,7 @@ class Game(BaseModel):
     title: str = ""
     description: str = ""
     words: List[str] = []
-    matched_words: List[str] = []
+    matched_words: List[str] = [];
     is_completed: bool = False
 
     def check_word(self, word: str) -> bool:
