@@ -1,6 +1,10 @@
 <script>
     import { onMount } from "svelte";
-    import { getDatabase, ref, child, get } from "firebase/database";
+    import { getDatabase, ref, child, get, set,push ,onValue } from "firebase/database";
+    import { getAuth } from "firebase/auth";
+
+    const auth = getAuth();
+    const user = auth.currentUser;
 
     const gameDB = ref(getDatabase());
 
@@ -11,6 +15,7 @@
     ];
     let currentColorIndex = 0;
 
+    let gameID = "";
     let title;
     let description;
     let words = [];
@@ -22,6 +27,12 @@
     let selectedCells = []; // 드래그한 셀들
     let selectedWord = "";
 
+    let leaderboard = [];
+    let timer = "00:00:00";
+    let startTime = new Date();
+
+    let gameStarted = false;
+
     function initGame() {
         title = "";
         description = "";
@@ -29,6 +40,63 @@
         grid = Array.from({length: gridSize}, () => Array(gridSize).fill(""));
         selectedCells = [];
         selectedWord = "";
+        startTime = new Date();
+        timer = "00:00:00";
+        gameStarted = false;
+    }
+
+    function startGame(){
+        startTime = new Date();
+        gameStarted = true;
+        updateTimer();
+        setInterval(updateTimer,1000);
+    }
+
+    function loadLeaderBoard(){
+        try{
+            const gameDataRef = ref(getDatabase(), 'leaderboards/' + {gameID});
+            onValue(gameDataRef,(res) => {
+                if(res.exists()){
+                    leaderboard = Object.values( res.val());
+                    leaderboard.sort((a,b) => a.time.localeCompare(b.time)); // 타임 기준 정렬
+                    console.log(leaderboard);
+                }
+                else {
+                    leaderboard = [];
+                }
+            });
+        }catch (error){
+            leaderboard = [];
+            console.log(error);
+        }
+
+    }
+
+    function uploadLeaderBoard(){
+        try{
+            const db = getDatabase();
+            const leaderboardRef = ref(db, `leaderboards/${gameID}`);
+            const newPostRef = push(leaderboardRef);
+
+            set(newPostRef, {
+                userName: user.displayName || "Unknown",
+                time: timer,
+            });
+        }catch (error){
+            console.log(error);
+        }
+    }
+
+
+    function updateTimer()
+    {
+        const now = new Date();
+        const elapsed  = new Date(now - startTime);
+        const hours = String(elapsed.getUTCHours()).padStart(2, "0");
+        const minutes = String(elapsed.getUTCMinutes()).padStart(2, "0");
+        const seconds = String(elapsed.getUTCSeconds()).padStart(2, "0");
+        timer = `${hours}:${minutes}:${seconds}`;
+        requestAnimationFrame(updateTimer);
     }
 
     onMount(() => {
@@ -39,19 +107,20 @@
         }
 
         const currentGame = JSON.parse(currentGameStr);
-        const gameID = currentGame.id;
+        gameID = currentGame.id;
 
         get(child(gameDB, `gameDatas/${gameID}`))
             .then((snapshot) => {
                 if (snapshot.exists()) {
                     initGame();
-                    console.log(snapshot.val());
+
                     title = snapshot.val()["title"];
                     description = snapshot.val()["description"];
                     words = snapshot.val()["words"];
                     collectedWords = [];
 
                     grid = generateGrid(gridSize, words);
+                    loadLeaderBoard(gameID);
                 } else {
                     console.error("No data available");
                     grid = generateGrid(gridSize, []); // 기본값 설정
@@ -210,45 +279,79 @@
     }
 </script>
 
-<div>
-    <h5 class="game-title">{title}</h5>
-    <p>{description}</p>
-</div>
+<main>
+    <div>
+        <h5 class="game-title">{title}</h5>
+        <p>{description}</p>
+        <p>{timer}</p>
+    </div>
 
-<div class="word-puzzle">
-    {#each grid as row, rowIndex}
-        <div class="row">
-            {#each row as letter, colIndex}
-            <span
-                    class="cell"
-                    data-row={rowIndex}
-                    data-col={colIndex}
-                    on:mousedown={() => onMouseDown(rowIndex, colIndex)}
-                    on:mouseover={() => onMouseEnter(rowIndex, colIndex)}
-                    on:mouseup={onMouseUp}>
-                {letter}
-            </span>
+    <div class="game-board">
+        <div class="wordList">
+            <h3>찾아야 할 단어들</h3>
+            <ul>
+                {#each words as word}
+                    <li class= {collectedWords.includes(word) ? 'collectWord' : ''}>
+                        {word}
+                    </li>
+                {/each}
+            </ul>
+        </div>
+
+        <div class="word-puzzle">
+            <button on:click={startGame} disabled={gameStarted} class="gameStart">
+                {gameStarted ? "게임 진행 중" : "게임 시작"}
+            </button>
+            {#each grid as row, rowIndex}
+                <div class="row">
+                    {#each row as letter, colIndex}
+                    <span
+                            class="cell"
+                            data-row={rowIndex}
+                            data-col={colIndex}
+                            on:mousedown={() => onMouseDown(rowIndex, colIndex)}
+                            on:mouseover={() => onMouseEnter(rowIndex, colIndex)}
+                            on:mouseup={onMouseUp}>
+                        {letter}
+                    </span>
+                    {/each}
+                </div>
             {/each}
         </div>
-    {/each}
-</div>
+        <div class="leaderboard">
+            <h3>현황판</h3>
+            <ul>
+                {#each leaderboard as {userName, time},index}
+                    <li class=leaderboard-item style={index < 3 ? 'font-weight: bold; color: gold;' : ''} >
+                        {index + 1}. {userName} - {time}
+                    </li>
+                {/each}
+            </ul>
+        </div>
+    </div>
+</main>
 
-<h3>찾아야 할 단어들</h3>
-<ul>
-    {#each words as word}
-        <li>{word}</li>
-    {/each}
-</ul>
-
-<h3>찾은 단어들</h3>
-<ul>
-    {#each collectedWords as word}
-        <li>{word}</li>
-    {/each}
-</ul>
 
 <style>
+    .game-board {
+        display: flex;
+        justify-content: start;
+        align-items: start;
+    }
+
+    .wordList {
+        width: 200px;
+
+    }
+
+    .gameStart {
+        width: 100%;
+        height: 100%;
+    }
+
     .word-puzzle {
+        width: 480px;
+        height: 480px;
         display: inline-block;
         user-select: none;
     }
@@ -270,5 +373,18 @@
 
     .cell[data-row][data-col]:hover {
         background-color: rgba(200, 200, 200, 0.3);
+    }
+
+    .collectWord {
+        text-decoration: line-through 2px;
+        color: green;
+    }
+
+    .leaderboard {
+        width: 200px;
+    }
+
+    .leaderboard-item {
+        color: gold;
     }
 </style>
