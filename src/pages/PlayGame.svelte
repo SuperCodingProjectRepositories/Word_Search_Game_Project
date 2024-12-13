@@ -193,7 +193,7 @@
                 for (let i = 0; i < word.length; i++) {
                     grid[row + i * dir.y][col + i * dir.x] = word[i];
                 }
-                console.log(row,col,dir);
+                console.log(row, col,word,dir);
                 placed = true;
             }
         }
@@ -206,13 +206,11 @@
             const newRow = row + i * dir.y;
             const newCol = col + i * dir.x;
 
-            if (
-                newRow < 0 ||
-                newRow >= size ||
-                newCol < 0 ||
-                newCol >= size ||
-                (grid[newRow][newCol] !== "" && grid[newRow][newCol] !== word[i])
-            ) {
+            if ( newRow < 0 || newRow >= size || newCol < 0 || newCol >= size){
+                return false;
+            }
+
+            if(grid[newRow][newCol] !== "" && grid[newRow][newCol] !== word[i]) {
                 return false;
             }
         }
@@ -320,8 +318,12 @@
 
     // 배열 비교 함수
     function arraysAreEqual(arr1, arr2) {
-        if (arr1.length !== arr2.length) return false; // 길이가 다르면 false
-        return arr1.every((value, index) => value === arr2[index]); // 모든 요소가 일치하는지 확인
+        for(let i = 0; i < arr1.length; i++) {
+            if(!arr2.includes(arr1[i])) {
+                return false;
+            }
+        }
+        return true;
     }
 
     function resetSelection() {
@@ -339,6 +341,7 @@
             if(!collectedWords.includes(words[i]))
             {
                 collectedWords.push(words[i]);
+                break;
             }
         }
         finalizeSelection();

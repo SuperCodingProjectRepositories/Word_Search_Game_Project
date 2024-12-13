@@ -23,11 +23,18 @@
             isLoading = false;
             return;
         }
-        const credential = GoogleAuthProvider.credential(null, token);
-        const result = await signInWithCredential(auth, credential);
-        const user = result.user;
-        user$.set(user);
-        isLoading = false;
+        try{
+            const credential = GoogleAuthProvider.credential(null, token);
+            const result = await signInWithCredential(auth, credential);
+            const user = result.user;
+            user$.set(user);
+            isLoading = false;
+        }catch (error) {
+            localStorage.removeItem("token");
+            user$.set(null);
+            isLoading = false;
+            console.log(error);
+        }
     }
 
     // 경로와 컴포넌트를 매핑
